@@ -1,0 +1,41 @@
+@charset "UTF-8";
+
+
+.title {
+	text-align: center;
+	font-size: 2em;
+	line-height: 1.8;
+	color: #d6cfdd; /*These colors were made with the help of Coolers: https://coolors.co/d6cfdd-9888a5-776472-537958-294d4a*/
+	background-color: #6C91BF; /*These colors were made with the help of Coolers  https://coolors.co/d6cfdd-9888a5-776472-537958-294d4a*/
+	text-shadow: 2px 2px 4px #000000;
+	border-radius: 50px;
+	margin-left: 200px;
+	margin-right: 200px;
+}
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.buttonPlay {
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: #e74c3c;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.divPlay {
+  width: 0;
+  height: 0;
+  border-top: 100px solid transparent;
+  border-bottom: 100px solid transparent;
+  border-left: 160px solid white;
+  margin-left: 32px;
+}
