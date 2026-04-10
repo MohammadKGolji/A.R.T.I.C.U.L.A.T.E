@@ -1,0 +1,182 @@
+import os
+import torch
+import librosa
+import pandas as pd
+import numpy as np
+from dataclasses import dataclass
+from typing import Any, Dict, List, Union
+
+from datasets import Dataset
+from transformers import (
+    WhisperProcessor,
+    WhisperForConditionalGeneration,
+    Seq2SeqTrainer,
+    Seq2SeqTrainingArguments,
+)
+import evaluate
+
+# Configure model alongside data paths and split behavior and reproducibility settings, mkaing it easy to edit if need be.
+CSV_PATH        = "torgo_pairs.csv"
+OUTPUT_DIR      = "./whisper-torgo"
+DYSARTHRIC_ONLY = True
+TRAIN_SPLIT     = 0.85
+SEED            = 42
+
+# Load the parsed TORGO pairs so this can only focus on training
+df = pd.read_csv(CSV_PATH)
+print(f"Total samples: {len(df)}") #acts like sanity check for moi
+
+# Create a speaker-level train/eval split so taht the speaker leakage reduces.
+speakers = df["speaker"].unique().tolist()
+np.random.seed(SEED)
+np.random.shuffle(speakers)
+
+split_idx      = int(len(speakers) * TRAIN_SPLIT)
+train_speakers = speakers[:split_idx]
+eval_speakers  = speakers[split_idx:]
+
+train_df = df[df["speaker"].isin(train_speakers)].reset_index(drop=True)
+eval_df  = df[df["speaker"].isin(eval_speakers)].reset_index(drop=True)
+
+print(f"Train samples: {len(train_df)} | Eval samples: {len(eval_df)}")
+
+
+# Load Whisper processor/model and relax default generation constraints.
+print(f"\nLoading whisper model...")
+processor = WhisperProcessor.from_pretrained("openai/whisper-small")
+model     = WhisperForConditionalGeneration.from_pretrained("openai/whisper-small")
+
+model.config.forced_decoder_ids = None
+model.generation_config.suppress_tokens = []
+model.generation_config.forced_decoder_ids = None
+
+# Convert audio/transcript rows into Whisper-ready input features and label IDs.
+def make_dataset(dataframe, label):
+    """Load audio files and extract Whisper features using librosa."""
+    input_features_list = []
+    labels_list         = []
+    skipped             = 0
+    total               = len(dataframe)
+
+    for i, row in dataframe.iterrows():
+        try:
+            audio, _ = librosa.load(row["audio_path"], sr=16000)
+            inputs    = processor(audio, sampling_rate=16000, return_tensors="pt")
+            input_features_list.append(inputs.input_features[0].numpy())
+            label_ids = processor.tokenizer(row["transcript"]).input_ids
+            labels_list.append(label_ids)
+        except Exception:
+            skipped += 1
+            continue
+
+        count = len(input_features_list)
+        if count % 200 == 0:
+            print(f"  Processed {count}/{total} files...")
+
+    print(f"  Done. Skipped {skipped} files due to errors.")
+    return Dataset.from_dict({
+        "input_features": input_features_list,
+        "labels":         labels_list,
+    })
+
+# Materialize both splits now to fail early on bad files and stabilize run time.
+print("\nPreprocessing training data (this takes a few minutes)...")
+train_dataset = make_dataset(train_df, "train")
+
+print("Preprocessing eval data...")
+eval_dataset = make_dataset(eval_df, "eval")
+
+
+# Define batch collation and dynamic padding for speech-to-sequence training makes memroy relativly consistent.
+@dataclass
+class DataCollatorSpeechSeq2SeqWithPadding:
+    processor: Any
+
+    def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
+        input_features = [{"input_features": torch.tensor(f["input_features"])} for f in features]
+        batch          = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+
+        label_features = [{"input_ids": f["labels"]} for f in features]
+        labels_batch   = self.processor.tokenizer.pad(label_features, return_tensors="pt")
+
+        labels = labels_batch["input_ids"].masked_fill(
+            labels_batch.attention_mask.ne(1), -100
+        )
+
+        if (labels[:, 0] == self.processor.tokenizer.bos_token_id).all().cpu().item():
+            labels = labels[:, 1:]
+
+        batch["labels"] = labels
+        return batch
+
+data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
+
+# Set up Word Error Rate (WER) metric computation for evaluation.
+wer_metric = evaluate.load("wer")
+
+def compute_metrics(pred):
+    pred_ids  = pred.predictions
+    label_ids = pred.label_ids
+
+    label_ids[label_ids == -100] = processor.tokenizer.pad_token_id
+
+    pred_str  = processor.batch_decode(pred_ids,  skip_special_tokens=True)
+    label_str = processor.batch_decode(label_ids, skip_special_tokens=True)
+
+    wer = wer_metric.compute(predictions=pred_str, references=label_str)
+    return {"wer": round(wer, 4)}
+
+
+# Configure core seq2seq training hyperparameters and checkpoint behavior.
+train_kwargs = dict(
+    output_dir=OUTPUT_DIR,
+    per_device_train_batch_size=4,
+    per_device_eval_batch_size=4,
+    gradient_accumulation_steps=4,
+    gradient_checkpointing=True,
+    fp16=True,
+    predict_with_generate=True,
+    learning_rate=1e-5,
+    warmup_steps=100,
+    max_steps=2000,
+    eval_steps=200,
+    save_steps=200,
+    save_total_limit=3,
+    load_best_model_at_end=True,
+    metric_for_best_model="wer",
+    greater_is_better=False,
+    logging_steps=25,
+    report_to="none",
+    push_to_hub=False,
+)
+
+import transformers
+version = tuple(int(x) for x in transformers.__version__.split(".")[:2])
+if version >= (4, 41):
+    train_kwargs["eval_strategy"] = "steps"
+else:
+    train_kwargs["evaluation_strategy"] = "steps"
+
+training_args = Seq2SeqTrainingArguments(**train_kwargs)
+
+trainer_kwargs = dict(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset,
+    data_collator=data_collator,
+    compute_metrics=compute_metrics,
+)
+
+try:
+    trainer = Seq2SeqTrainer(**trainer_kwargs, processing_class=processor.feature_extractor)
+except TypeError:
+    trainer = Seq2SeqTrainer(**trainer_kwargs, tokenizer=processor.feature_extractor)
+
+# Run fine-tuning; save the trained model alongside artifacts.
+print("\nStarting training...")
+trainer.train()
+print("\nSaving model...")
+model.save_pretrained(OUTPUT_DIR)
+processor.save_pretrained(OUTPUT_DIR)
+print(f"Model saved to {OUTPUT_DIR}/")
