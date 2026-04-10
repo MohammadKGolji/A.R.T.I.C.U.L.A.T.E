@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head> </head> 
+<!--<link rel="preconnect" href="###>   -->
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="myStyle.css">
+
+<body class="body">
+
+
+
+<div class="top-left-fixed"> A.R.T.I.C.U.L.A.T.E. </div>
+
+<p class= "headingone">Record</p>
+
+<div class="button-body">
+<img id="myImage" src="Images/Play_Button.png" onclick="changeImage()" width="700vw">
+
+
+</div>
+
+<script> 
+
+function changeImage() {
+var img = document.getElementById('myImage')
+
+if (img.src.match("Images/Play_Button.png")) {
+img.src = "Images/Pause_Button.png"; 
+}
+
+else {
+img.src = "Images/Play_Button.png"; 
+}
+
+}
+
+</script>
+
+</body>
+
