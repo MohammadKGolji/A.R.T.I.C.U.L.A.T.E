@@ -1,41 +1,100 @@
-@charset "UTF-8";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARTiculate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="mohammadCode.css">
+</head>
+<body>
 
+  <div class="top-left-fixed">A.R.T.I.C.U.L.A.T.E.</div>
 
-.title {
-	text-align: center;
-	font-size: 2em;
-	line-height: 1.8;
-	color: #d6cfdd; /*These colors were made with the help of Coolers: https://coolors.co/d6cfdd-9888a5-776472-537958-294d4a*/
-	background-color: #6C91BF; /*These colors were made with the help of Coolers  https://coolors.co/d6cfdd-9888a5-776472-537958-294d4a*/
-	text-shadow: 2px 2px 4px #000000;
-	border-radius: 50px;
-	margin-left: 200px;
-	margin-right: 200px;
-}
-.container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-}
+  <p class="headingone">Record</p>
 
-.buttonPlay {
-  width: 600px;
-  height: 600px;
-  border-radius: 50%;
-  background: #e74c3c;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+  <div class="button-body">
+    <button id="mic">
+      <img id="myImage" src="Images/Play_Button.png" width="700">
+    </button>
+    <audio class="playback" controls></audio>
+  </div>
 
-.divPlay {
-  width: 0;
-  height: 0;
-  border-top: 100px solid transparent;
-  border-bottom: 100px solid transparent;
-  border-left: 160px solid white;
-  margin-left: 32px;
-}
+  <!-- Settings icon -->
+  <button class="settings-icon-button" onclick="toggleSettings()" title="Settings">
+    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </button>
+
+  <!-- Settings modal -->
+  <div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
+  <div class="settings-modal" id="settings-modal">
+    <button class="settings-modal-close" onclick="toggleSettings()">&#x2715;</button>
+    <h2 class="settings-modal-title">Settings</h2>
+    <button class="settings-item">Account</button>
+    <button class="settings-item">Authorization</button>
+    <button class="settings-item">Safety</button>
+    <button class="settings-item">Language</button>
+    <button class="settings-item">Accessability</button>
+    <button class="settings-item">Help</button>
+    <button class="settings-item">Information</button>
+  </div>
+
+  <!-- Transcripts -->
+  <div class="menu-wrapper">
+    <div class="menu-box" id="menu"></div>
+    <button class="menu-button" onclick="toggleMenu()">Transcripts</button>
+    <div class="transcript-panel" id="transcript-panel">
+      <button class="transcript-panel-close" onclick="closeTranscript()">&#x2715;</button>
+      <h3 class="transcript-panel-title" id="transcript-panel-title"></h3>
+      <p class="transcript-panel-content" id="transcript-panel-content">Transcript content</p>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+  <script>
+    function toggleMenu() {
+      document.getElementById('menu').classList.toggle('open');
+    }
+
+    const transcriptData = {
+      'Transcript 1': 'Text for transcript 1...',
+      'Transcript 2': 'Text for transcript 2...',
+      'Transcript 3': 'Text for transcript 3...',
+      'Transcript 4': 'Text for transcript 4...',
+      'Transcript 5': 'Text for transcript 5...',
+    };
+
+    function renderMenu() {
+      const menu = document.getElementById('menu');
+      menu.innerHTML = '';
+      Object.keys(transcriptData).forEach(name => {
+        const btn = document.createElement('button');
+        btn.className = 'menu-item';
+        btn.textContent = name;
+        btn.onclick = () => openTranscript(name);
+        menu.appendChild(btn);
+      });
+    }
+    renderMenu();
+
+    function openTranscript(name) {
+      document.getElementById('transcript-panel-title').textContent = name;
+      document.getElementById('transcript-panel-content').textContent = transcriptData[name] || 'No content yet.';
+      document.getElementById('transcript-panel').classList.add('open');
+    }
+
+    function closeTranscript() {
+      document.getElementById('transcript-panel').classList.remove('open');
+    }
+
+    function toggleSettings() {
+      document.getElementById('settings-modal').classList.toggle('open');
+      document.getElementById('settings-overlay').classList.toggle('open');
+    }
+  </script>
+
+</body>
+</html>
