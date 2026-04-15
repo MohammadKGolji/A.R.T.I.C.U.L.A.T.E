@@ -1,100 +1,288 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ARTiculate</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="mohammadCode.css">
-</head>
-<body>
+@charset "UTF-8";
 
-  <div class="top-left-fixed">A.R.T.I.C.U.L.A.T.E.</div>
+/* General body — gradient background */
+body {
+  background: #044269;
+  background: linear-gradient(180deg, rgba(4,66,105,1) 13%, rgba(98,125,163,1) 87%, rgba(136,162,186,1) 100%);
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  overflow: hidden;
+}
 
-  <p class="headingone">Record</p>
+/* A.R.T.I.C.U.L.A.T.E. logo — upper left */
+.top-left-fixed {
+  position: fixed;
+  top: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  font-size: 5vw;
+  color: rgb(255, 255, 255);
+  font-family: Verdana, Geneva, sans-serif;
+  white-space: nowrap;
+}
 
-  <div class="button-body">
-    <button id="mic">
-      <img id="myImage" src="Images/Play_Button.png" width="700">
-    </button>
-    <audio class="playback" controls></audio>
-  </div>
+/* "Record" heading */
+.headingone {
+  text-align: center;
+  color: rgb(255, 255, 255);
+  font-size: 10vw;
+  margin-top: 18vh;
+  margin-bottom: 0;
+  font-family: Verdana, Geneva, sans-serif;
+}
 
-  <!-- Settings icon -->
-  <button class="settings-icon-button" onclick="toggleSettings()" title="Settings">
-    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="3"></circle>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-    </svg>
-  </button>
+/* Centered container for the record button */
+.button-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 50vh;
+}
 
-  <!-- Settings modal -->
-  <div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
-  <div class="settings-modal" id="settings-modal">
-    <button class="settings-modal-close" onclick="toggleSettings()">&#x2715;</button>
-    <h2 class="settings-modal-title">Settings</h2>
-    <button class="settings-item">Account</button>
-    <button class="settings-item">Authorization</button>
-    <button class="settings-item">Safety</button>
-    <button class="settings-item">Language</button>
-    <button class="settings-item">Accessability</button>
-    <button class="settings-item">Help</button>
-    <button class="settings-item">Information</button>
-  </div>
+.button-body:active {
+  transform: scale(0.97);
+}
 
-  <!-- Transcripts -->
-  <div class="menu-wrapper">
-    <div class="menu-box" id="menu"></div>
-    <button class="menu-button" onclick="toggleMenu()">Transcripts</button>
-    <div class="transcript-panel" id="transcript-panel">
-      <button class="transcript-panel-close" onclick="closeTranscript()">&#x2715;</button>
-      <h3 class="transcript-panel-title" id="transcript-panel-title"></h3>
-      <p class="transcript-panel-content" id="transcript-panel-content">Transcript content</p>
-    </div>
-  </div>
+/* Strip default button styles from the mic button */
+#mic {
+  background: #e74c3c;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
 
-  <script src="main.js"></script>
-  <script>
-    function toggleMenu() {
-      document.getElementById('menu').classList.toggle('open');
-    }
+#mic:hover {
+  background: #c0392b;
+}
 
-    const transcriptData = {
-      'Transcript 1': 'Text for transcript 1...',
-      'Transcript 2': 'Text for transcript 2...',
-      'Transcript 3': 'Text for transcript 3...',
-      'Transcript 4': 'Text for transcript 4...',
-      'Transcript 5': 'Text for transcript 5...',
-    };
+#mic.is-recording {
+  background: #27ae60;
+}
 
-    function renderMenu() {
-      const menu = document.getElementById('menu');
-      menu.innerHTML = '';
-      Object.keys(transcriptData).forEach(name => {
-        const btn = document.createElement('button');
-        btn.className = 'menu-item';
-        btn.textContent = name;
-        btn.onclick = () => openTranscript(name);
-        menu.appendChild(btn);
-      });
-    }
-    renderMenu();
+/* Hide the image while using the CSS circle placeholder */
+#myImage {
+  display: none;
+}
 
-    function openTranscript(name) {
-      document.getElementById('transcript-panel-title').textContent = name;
-      document.getElementById('transcript-panel-content').textContent = transcriptData[name] || 'No content yet.';
-      document.getElementById('transcript-panel').classList.add('open');
-    }
+/* Transcripts button + panel — bottom center */
+.menu-wrapper {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
 
-    function closeTranscript() {
-      document.getElementById('transcript-panel').classList.remove('open');
-    }
+.menu-button {
+  width: 180px;
+  height: 50px;
+  background: #6653c4;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
 
-    function toggleSettings() {
-      document.getElementById('settings-modal').classList.toggle('open');
-      document.getElementById('settings-overlay').classList.toggle('open');
-    }
-  </script>
+.menu-button:hover {
+  background: #4932bc;
+}
 
-</body>
-</html>
+.menu-box {
+  display: none;
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 250px;
+  background: #5d6a8e;
+  border-radius: 12px;
+  padding: 20px;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 300ms ease;
+}
+
+.menu-box.open {
+  max-height: 50vh;
+  overflow-y: auto;
+  display: flex;
+}
+
+.menu-item {
+  width: 100%;
+  padding: 12px;
+  background: #044269;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: #e74c3c;
+}
+
+.transcript-panel {
+  display: none;
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 250px;
+  max-height: 30vh;
+  background: #5d6a8e;
+  border-radius: 12px;
+  padding: 20px;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.transcript-panel.open {
+  display: flex;
+}
+
+.transcript-panel-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.transcript-panel-close:hover {
+  color: white;
+}
+
+.transcript-panel-title {
+  color: white;
+  font-size: 16px;
+  margin: 0 0 8px 0;
+}
+
+.transcript-panel-content {
+  color: #ccc;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Settings icon — upper right */
+.settings-icon-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #6653c4;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  z-index: 100;
+}
+
+.settings-icon-button:hover {
+  background: #4932bc;
+}
+
+.settings-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+}
+
+.settings-overlay.open {
+  display: block;
+}
+
+.settings-modal {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  min-height: 200px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #5d6a8e;
+  border-radius: 12px;
+  padding: 30px;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 300;
+}
+
+.settings-modal.open {
+  display: flex;
+}
+
+.settings-modal-title {
+  color: white;
+  font-size: 20px;
+  margin: 0 0 10px 0;
+}
+
+.settings-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.settings-modal-close:hover {
+  color: white;
+}
+
+.settings-item {
+  width: 100%;
+  padding: 20px 12px;
+  background: #044269;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.settings-item:hover {
+  background: #e74c3c;
+}
+
