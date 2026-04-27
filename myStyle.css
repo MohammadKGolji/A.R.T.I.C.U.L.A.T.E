@@ -1,8 +1,20 @@
+
+/* Circle gradient was taken and altered from https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/gradient/radial-gradient. Liquid circle underneath button code was taken from, https://www.youtube.com/watch?v=2vjlsZOtFW4 , keyframe general code was taken from https://www.youtube.com/watch?v=60OWr7VvJhE but altered.  Media queries code was taken and altered from https://www.w3schools.com/css/css3_mediaqueries.asp. */
 /* general body, adds gradient */ 
+
+
 body {
 	
 	background: #044269;
-	background: linear-gradient(180deg, rgba(4, 66, 105, 1) 13%, rgba(98, 125, 163, 1) 87%, rgba(136, 162, 186, 1) 100%);
+
+	background: radial-gradient(
+  circle at 50% 60%,
+   rgba(130, 165, 180, 1) 0%,
+  rgba(90, 130, 160, 1) 40%,
+ rgba(4, 70, 105, 1)100%
+);
+
+
 	margin: 0;
     padding: 0;
     height: 100vh; 
@@ -11,77 +23,195 @@ body {
     overflow: hidden; 
 }
 
+#myImage {
+  width: 100%;
+  max-width: 400px;
+}
+
+
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center; 
+  justif-content: flex-start; 
+  padding: 0;            
+}
+
+.top-spacer {
+	height: 35vh;
+}
+
+
 
 /* Formatting for A.R.T.I.C.U.L.A.T.E. logo in upper left-hand side */ 
 .top-left-fixed {
   position: fixed; 
-  top: 5vh;
-  left: 10vw;
+  top: 2vh;
+  left: 4vw;
   z-index: 1000; 
   font-size: 5vw;
-  color: rgb(255, 255, 255);
+  color: #FFFFFF99;
   font-family: Verdana, Geneva, sans-serif;
+
   
 }
 
 
-/* Container formatting for button */ 
-.button-body {
-    display: flex;          
-    justify-content: center; 
-    align-items: center;    
-    width: 100vw;
-    height: 50vh;                   
-}
 
 /* scales button down & back to normal */ 
  .button-body:active {
-  transform: scale(0.97);  
+  transform: scale(0.97);
 }
 
 
 
-.headingone {
-	text-align: center; 
-	color: rgb(255, 255, 255);
-	font-size: 10vw;
-	margin-top: 18vh;
-	font-family: Verdana, Geneva, sans-serif;
+
+ 
+
+
+.button-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  height: fit-content;
+  margin-top: -16vh;
 }
 
-/* Experimenting w/ Media queries--  IN PROGRESS 
+.liquid_shape {
+  position: absolute;
+  z-index: 0;
+  width: 58%;
+  height: 58%;
+  top: 21%;
+ background: linear-gradient(135deg, #ffffff2F 0%, #ffffffFF 100%);
+ box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+
+  animation: liquid 8s ease-in-out infinite,
+           wobble 8s ease-in-out infinite;
 
 
-/* Extra small devices (phones, 600px and down) 
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  transition: transform 0.5s ease-in-out;
+}
+
+
+.button-body {
+  position: relative;
+  z-index: 2;      
+}
+
+
+.container {
+	display: flex; 
+	align-items: center;
+	justify-content:center;
+	border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%
+}
+
+
+@keyframes liquid {
+	0% {
+	border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+	background-size: 100% 100%;
+	}
+	50% {
+	border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+	background-size: 300% 150%;
+	}
+	100% {
+	border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+	background-size: 100% 100%;
+	}
+}
+
+@keyframes pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.liquid-wrapper {
+  position: absolute;     
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+
+  display: flex;          
+  justify-content: center;
+  align-items: center;
+
+  animation: wobble 1s ease-in-out infinite;
+  z-index: 0;
+}
+
+.pulsing {
+  animation: liquid 6s ease-in-out infinite,
+             wobble 6s ease-in-out infinite,
+             pulse 2.5s ease-in-out infinite;
+}
+
+.audio-container{
+	width:100vw;
+	position: relative;
+	border-radius: 10px;
+	overflow: hidden; 
+	 
+}
+
+.audio-container .audio {
+	background: FFFFFF00
+	width: 100%;
+	height:130px; 
+}
+
+#waveform {
+  width: 100%;
+  height: 128; 
+  background-color: FFFFFF00; 
+  margin-top: -17vh;
+}
+
+
+
+
+
+/* Extra small devices (phones, 600px and down) */  
 @media only screen and (max-width: 600px) {
-  .headingone {font-size: 15vw; margin-top: 7vh;}
-}
-
-/* Small devices (portrait tablets and large phones, 600px and up) 
-@media only screen and (min-width: 600px) {
-  .headingone {font-size: 15vw; margin-top: 7vh;}
-}
-
-/* Medium devices (landscape tablets, 768px and up) 
-@media only screen and (min-width: 768px) {
-  .headingone {font-size: 15vw; margin-top: 7vh;}
-} 
-
-/* Large devices (laptops/desktops, 992px and up) 
-@media only screen and (min-width: 992px) {
-  .headingone {font-size: 15vw; margin-top: 7vh;}
-} 
-
-/* Extra large devices (large laptops and desktops, 1200px and up)
-@media only screen and (min-width: 1200px) {
-  .headingone {font-size: 15vw; margin-top: 7vh;}
-}
-*/  
-   
   
-    
-  }
+}
 
+/* Small devices (portrait tablets and large phones, 600px and up) */  
+@media only screen and (min-width: 600px) {
+   .button-wrapper {margin-top: 0;}
+}
 
+/* Medium devices (landscape tablets, 768px and up) */  
+@media only screen and (min-width: 768px) {
 
+  .button-wrapper {margin-top: 0;}
+} 
 
+/* Large devices (laptops/desktops, 992px and up) */  
+@media only screen and (min-width: 992px) {
+ .top-left-fixed {
+  top: 2vh;
+  left: 1vw; 
+  font-size: 3vw;
+}
+  .button-wrapper {margin-top: 0;}
+} 
+
+/* Extra large devices (large laptops and desktops, 1200px and up)*/  
+@media only screen and (min-width: 1200px) {
+	
+.top-left-fixed {
+  top: 2vh;
+  left: 1vw; 
+  font-size: 3vw;
+}
+ .button-wrapper {margin-top: 0;}
+  
+}
