@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A.R.T.I.C.U.L.A.T.E</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="top-left-fixed">A.R.T.I.C.U.L.A.T.E.</div>
+
+<!-- Settings icon -->
+<button class="settings-icon-button" onclick="toggleSettings()" title="Settings">
+  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"></circle>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+  </svg>
+</button>
+
+<!-- Settings modal -->
+<div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
+<div class="settings-modal" id="settings-modal">
+  <button class="settings-modal-close" onclick="toggleSettings()">&#x2715;</button>
+  <h2 class="settings-modal-title">Settings</h2>
+  <div class="settings-entry">
+    <button class="settings-item" onclick="toggleMode()">Contrast</button>
+    <div class="settings-item-detail">Adjust the display contrast.</div>
+  </div>
+  <div class="settings-entry">
+    <button class="settings-item" onclick="toggleSetting(this)">Help</button>
+    <div class="settings-item-detail">Contact our office for support.</div>
+  </div>
+  <div class="settings-entry">
+    <button class="settings-item" onclick="toggleSetting(this)">Information</button>
+    <div class="settings-item-detail">A.R.T.I.C.U.L.A.T.E. app, submission for Apps for Good 2026 and congressional app challenge.</div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="button-wrapper">
+    <div class="liquid-wrapper">
+      <div class="liquid_shape liquid-body"></div>
+    </div>
+    <div class="button-body disabled" id="btnWrap">
+      <img id="btn" src="Images/Play_Button.png" alt="Start recording">
+    </div>
+  </div>
+
+  <div class="waveform" id="waveform">
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  </div>
+
+  <div class="spinner-wrap">
+    <div class="spinner" id="spinner"></div>
+  </div>
+
+  <p class="status warming dot-pulse" id="status">Connecting</p>
+</div>
+
+<p class="footer">Grammar Police &mdash; Apps for Good 2026</p>
+
+<script>
+  const SPACE_URL = "https://pineappleananas-speechcorrection.hf.space";
+
+  const API_PATHS = {
+    upload: ["/upload", "/gradio_api/upload"],
+    predict: ["/call/process_audio", "/gradio_api/call/process_audio", "/call/predict", "/gradio_api/call/predict"],
+  };
+
+  const HEALTH_URL = SPACE_URL + "/";
+
+  const btn      = document.getElementById("btn");
+  const btnWrap  = document.getElementById("btnWrap");
+  const status   = document.getElementById("status");
+  const spinner  = document.getElementById("spinner");
+  const waveform = document.getElementById("waveform");
+  const liquidEl = document.querySelector('.liquid-body');
+
+  let mediaRecorder = null;
+  let audioChunks   = [];
+  let isRecording   = false;
+  let serverReady   = false;
+  let isBusy        = false;
+  let healthRetries = 0;
+
+  const MAX_HEALTH_RETRIES = 15;
+  const REQUEST_TIMEOUT_MS = 20000;
+
+  function setStatus(msg, cls) {
+    status.textContent = msg;
+    status.className   = "status " + (cls || "");
+  }
+
+  function setButtonEnabled(enabled) {
+    if (enabled) {
+      btnWrap.classList.remove('disabled');
+    } else {
+      btnWrap.classList.add('disabled');
+    }
+  }
+
+  function scaleUp() {
+    liquidEl.style.transform = 'scale(1.1)';
+    liquidEl.classList.add('pulsing');
+  }
+
+  function scaleDown() {
+    liquidEl.style.transform = 'scale(1)';
+    liquidEl.classList.remove('pulsing');
+  }
+
+  async function fetchWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(function() { controller.abort(); }, timeoutMs || REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(url, Object.assign({}, options || {}, { signal: controller.signal }));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function readErrorBody(res) {
+    try {
+      const body = await res.text();
+      return body ? body.slice(0, 180) : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function extractTextFromPayload(payload) {
+    if (typeof payload === "string") return payload.trim() || null;
+
+    if (Array.isArray(payload)) {
+      for (const item of payload) {
+        const text = extractTextFromPayload(item);
+        if (text) return text;
+      }
+      return null;
+    }
+
+    if (!payload || typeof payload !== "object") return null;
+
+    if (typeof payload.corrected === "string" && payload.corrected.trim()) return payload.corrected.trim();
+    if (typeof payload.text === "string" && payload.text.trim()) return payload.text.trim();
+    if (typeof payload.raw === "string" && payload.raw.trim()) return payload.raw.trim();
+
+    if (Array.isArray(payload.data)) {
+      for (const item of payload.data) {
+        const text = extractTextFromPayload(item);
+        if (text) return text;
+      }
+    }
+
+    if (payload.output) {
+      const outText = extractTextFromPayload(payload.output);
+      if (outText) return outText;
+    }
+
+    return null;
+  }
+
+  function parseSSEPayload(resultText) {
+    const lines = resultText.split("\n");
+    let currentEvent = "";
+    let bestText = null;
+    let fallbackText = null;
+    let serverError = null;
+    let lastDataSnippet = null;
+
+    for (const line of lines) {
+      if (line.startsWith("event:")) {
+        currentEvent = line.slice(6).trim().toLowerCase();
+        continue;
+      }
+
+      if (!line.startsWith("data: ")) continue;
+      const raw = line.slice(6).trim();
+      if (!raw || raw === "[DONE]") continue;
+
+      let payload;
+      try {
+        payload = JSON.parse(raw);
+        lastDataSnippet = raw;
+      } catch (e) {
+        continue;
+      }
+
+      if (currentEvent === "error") {
+        if (payload && typeof payload === "object" && payload.error) {
+          serverError = String(payload.error);
+        }
+        continue;
+      }
+
+      const text = extractTextFromPayload(payload);
+      if (!text) continue;
+
+      if (currentEvent === "complete" || currentEvent === "output") {
+        bestText = text;
+      } else if (!fallbackText) {
+        fallbackText = text;
+      }
+    }
+
+    if (bestText) return { text: bestText, error: null };
+    if (fallbackText) return { text: fallbackText, error: null };
+    if (serverError) return { text: null, error: serverError };
+    if (lastDataSnippet) {
+      return { text: null, error: "No usable result from server: " + lastDataSnippet.slice(0, 140) };
+    }
+    return { text: null, error: "No usable result from server" };
+  }
+
+  async function postJSONWithFallback(paths, payloadOrBuilder) {
+    let lastErr = null;
+
+    for (const path of paths) {
+      const candidatePayloads = typeof payloadOrBuilder === "function"
+        ? payloadOrBuilder(path)
+        : payloadOrBuilder;
+      const payloads = Array.isArray(candidatePayloads) ? candidatePayloads : [candidatePayloads];
+
+      for (const payload of payloads) {
+        try {
+          const res = await fetchWithTimeout(SPACE_URL + path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (res.status === 404) {
+            lastErr = new Error("Not found: " + path);
+            break;
+          }
+
+          if (!res.ok) {
+            const body = await readErrorBody(res);
+            lastErr = new Error("Request failed (" + res.status + ")" + (body ? ": " + body : ""));
+            continue;
+          }
+
+          const data = await res.json();
+          return { path: path, data: data };
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+    }
+
+    throw lastErr || new Error("No working endpoint found");
+  }
+
+  async function postFormWithFallback(paths, formData) {
+    let lastErr = null;
+
+    for (const path of paths) {
+      try {
+        const res = await fetchWithTimeout(SPACE_URL + path, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (res.status === 404) {
+          lastErr = new Error("Not found: " + path);
+          continue;
+        }
+
+        if (!res.ok) {
+          const body = await readErrorBody(res);
+          throw new Error("Request failed (" + res.status + ")" + (body ? ": " + body : ""));
+        }
+
+        const data = await res.json();
+        return { path: path, data: data };
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    throw lastErr || new Error("No working endpoint found");
+  }
+
+  function extractUploadedFilePath(uploadData) {
+    if (Array.isArray(uploadData) && uploadData[0]) {
+      if (typeof uploadData[0] === "string") return uploadData[0];
+      if (uploadData[0] && typeof uploadData[0] === "object") {
+        if (typeof uploadData[0].path === "string") return uploadData[0].path;
+        if (typeof uploadData[0].name === "string") return uploadData[0].name;
+      }
+    }
+
+    if (uploadData && typeof uploadData === "object") {
+      if (typeof uploadData.path === "string") return uploadData.path;
+      if (typeof uploadData.file === "string") return uploadData.file;
+      if (uploadData.data && Array.isArray(uploadData.data) && uploadData.data[0]) {
+        if (typeof uploadData.data[0] === "string") return uploadData.data[0];
+        if (uploadData.data[0] && typeof uploadData.data[0].path === "string") {
+          return uploadData.data[0].path;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function createFileDataFromUpload(uploadData) {
+    const filePath = extractUploadedFilePath(uploadData);
+    if (!filePath) return null;
+
+    if (Array.isArray(uploadData) && uploadData[0] && typeof uploadData[0] === "object") {
+      const obj = uploadData[0];
+      if (obj.meta && obj.meta._type === "gradio.FileData") return obj;
+    }
+
+    return {
+      path: filePath,
+      orig_name: "recording.webm",
+      meta: { _type: "gradio.FileData" },
+    };
+  }
+
+  function buildPredictPayloads(fileData, endpointPath) {
+    const filePath = fileData && typeof fileData === "object" ? fileData.path : fileData;
+    if (endpointPath.indexOf("process_audio") !== -1) {
+      return [
+        { data: [fileData] },
+        { data: [{ path: filePath, orig_name: "recording.webm", meta: { _type: "gradio.FileData" } }] },
+        { data: [{ path: filePath, orig_name: "recording.webm" }] },
+        { data: [{ path: filePath }] },
+        { data: [filePath] },
+        { audio_path: fileData },
+        { audio_path: { path: filePath, orig_name: "recording.webm", meta: { _type: "gradio.FileData" } } },
+        { audio_path: { path: filePath, orig_name: "recording.webm" } },
+        { audio_path: filePath },
+      ];
+    }
+    return [
+      { data: [{ path: filePath }] },
+      { data: [filePath] },
+    ];
+  }
+
+  function resultPathFromPredictPath(predictPath, eventId) {
+    return predictPath + "/" + eventId;
+  }
+
+  async function getTextWithFallback(paths) {
+    let lastErr = null;
+
+    for (const path of paths) {
+      try {
+        const res = await fetchWithTimeout(SPACE_URL + path, {}, 30000);
+
+        if (res.status === 404) {
+          lastErr = new Error("Not found: " + path);
+          continue;
+        }
+
+        if (!res.ok) {
+          const body = await readErrorBody(res);
+          throw new Error("Request failed (" + res.status + ")" + (body ? ": " + body : ""));
+        }
+
+        return await res.text();
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    throw lastErr || new Error("No working endpoint found");
+  }
+
+  function waitForServer() {
+    fetchWithTimeout(HEALTH_URL, {}, 8000)
+      .then(function(res) {
+        if (res.ok) {
+          serverReady = true;
+          setButtonEnabled(true);
+          healthRetries = 0;
+          setStatus("Tap to speak");
+        } else {
+          healthRetries += 1;
+          if (healthRetries >= MAX_HEALTH_RETRIES) {
+            setStatus("Server unavailable", "error");
+            return;
+          }
+          setTimeout(waitForServer, 4000);
+        }
+      })
+      .catch(function() {
+        healthRetries += 1;
+        if (healthRetries >= MAX_HEALTH_RETRIES) {
+          setStatus("Server unavailable", "error");
+          return;
+        }
+        setTimeout(waitForServer, 4000);
+      });
+  }
+
+  window.addEventListener("load", function() {
+    waitForServer();
+  });
+
+  async function startRecording() {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+        setStatus("Browser does not support recording", "error");
+        return;
+      }
+
+      const stream  = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks   = [];
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = function(e) {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+      mediaRecorder.onstop = handleStop;
+      mediaRecorder.start();
+
+      isRecording = true;
+      btn.src = "Images/Pause_Button.png";
+      scaleUp();
+      waveform.classList.add("visible");
+      setStatus("Recording...", "active");
+
+    } catch (err) {
+      setStatus("Microphone access denied", "error");
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(function(t) { t.stop(); });
+      isRecording = false;
+      btn.src = "Images/Play_Button.png";
+      scaleDown();
+      waveform.classList.remove("visible");
+    }
+  }
+
+  async function handleStop() {
+    if (isBusy) return;
+    isBusy = true;
+    setButtonEnabled(false);
+    spinner.classList.add("visible");
+    setStatus("Processing...", "working");
+
+    const blob = new Blob(audioChunks, { type: "audio/webm" });
+    if (!blob || blob.size === 0) {
+      spinner.classList.remove("visible");
+      setStatus("No audio captured", "error");
+      isBusy = false;
+      setButtonEnabled(serverReady);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("files", blob, "recording.webm");
+
+      const uploadCall = await postFormWithFallback(API_PATHS.upload, formData);
+      const uploadData = uploadCall.data;
+      const fileData = createFileDataFromUpload(uploadData);
+      if (!fileData) {
+        throw new Error("Upload response missing file path");
+      }
+
+      const predictCall = await postJSONWithFallback(API_PATHS.predict, function(path) {
+        return buildPredictPayloads(fileData, path);
+      });
+      const predictData = predictCall.data;
+      const eventId     = predictData.event_id;
+      if (!eventId) throw new Error("Predict response missing event id");
+
+      const resultPaths = [
+        resultPathFromPredictPath(predictCall.path, eventId),
+        "/call/process_audio/" + eventId,
+        "/gradio_api/call/process_audio/" + eventId,
+        "/call/predict/" + eventId,
+        "/gradio_api/call/predict/" + eventId,
+      ];
+      const resultText = await getTextWithFallback(resultPaths);
+
+      const parsed = parseSSEPayload(resultText);
+      if (!parsed.text) {
+        throw new Error(parsed.error || "No usable result from server");
+      }
+      const corrected = parsed.text;
+
+      spinner.classList.remove("visible");
+      setStatus("Speaking...", "active");
+
+      if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") {
+        setStatus("Done (speech unsupported)", "error");
+      } else {
+        const utterance = new SpeechSynthesisUtterance(corrected);
+        utterance.lang  = "en-US";
+        utterance.rate  = 0.95;
+        utterance.onend = function() { setStatus("Tap to speak"); };
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      }
+
+    } catch (err) {
+      spinner.classList.remove("visible");
+      const msg = err && err.message ? err.message : "Unexpected failure";
+      setStatus(msg, "error");
+      console.error(err);
+      setTimeout(function() { setStatus("Tap to speak"); }, 3000);
+    } finally {
+      isBusy = false;
+      setButtonEnabled(serverReady);
+    }
+  }
+
+  function toggleSettings() {
+    document.getElementById('settings-modal').classList.toggle('open');
+    document.getElementById('settings-overlay').classList.toggle('open');
+    closeSetting();
+  }
+
+  function toggleSetting(btn) {
+    const detail = btn.nextElementSibling;
+    const isOpen = detail.classList.contains('open');
+    document.querySelectorAll('.settings-item-detail').forEach(d => d.classList.remove('open'));
+    if (!isOpen) detail.classList.add('open');
+  }
+
+  function closeSetting() {
+    document.querySelectorAll('.settings-item-detail').forEach(d => d.classList.remove('open'));
+  }
+
+  btn.addEventListener("click", function() {
+    if (!serverReady || isBusy) return;
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  });
+</script>
+<script src="script.js" defer></script>
+
+</body>
+</html>
