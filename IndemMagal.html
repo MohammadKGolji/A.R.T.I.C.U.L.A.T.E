@@ -49,11 +49,7 @@
     </div>
   </div>
 
-  <div class="waveform" id="waveform">
-    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-  </div>
+  <div id="waveform" class="audio-container"></div>
 
   <div class="spinner-wrap">
     <div class="spinner" id="spinner"></div>
@@ -64,11 +60,14 @@
 
 <p class="footer">Grammar Police &mdash; Apps for Good 2026</p>
 
-<script>
+<script type="module">
+  import WaveSurfer from 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js';
+  import RecordPlugin from 'https://unpkg.com/wavesurfer.js@7/dist/plugins/record.esm.js';
+
   const SPACE_URL = "https://pineappleananas-speechcorrection.hf.space";
 
   const API_PATHS = {
-    upload: ["/upload", "/gradio_api/upload"],
+    upload:  ["/upload", "/gradio_api/upload"],
     predict: ["/call/process_audio", "/gradio_api/call/process_audio", "/call/predict", "/gradio_api/call/predict"],
   };
 
@@ -78,11 +77,8 @@
   const btnWrap  = document.getElementById("btnWrap");
   const status   = document.getElementById("status");
   const spinner  = document.getElementById("spinner");
-  const waveform = document.getElementById("waveform");
   const liquidEl = document.querySelector('.liquid-body');
 
-  let mediaRecorder = null;
-  let audioChunks   = [];
   let isRecording   = false;
   let serverReady   = false;
   let isBusy        = false;
@@ -91,17 +87,65 @@
   const MAX_HEALTH_RETRIES = 15;
   const REQUEST_TIMEOUT_MS = 20000;
 
+  // ── WaveSurfer + RecordPlugin ───────────────────────────────────
+  const smoothedHeights = new Array(28).fill(4);
+
+  const wavesurfer = WaveSurfer.create({
+    container: '#waveform',
+    waveColor: 'rgba(255,255,255,0.6)',
+    progressColor: 'transparent',
+    height: 80,
+    interact: false,
+    renderFunction: (channels, ctx) => {
+      const { width, height } = ctx.canvas;
+      const BAR_COUNT  = 28;
+      const BAR_WIDTH  = 12;
+      const BAR_GAP    = 9;
+      const BAR_RADIUS = 6;
+      const centerY    = height / 2;
+      const data       = channels[0];
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+
+      for (let i = 0; i < BAR_COUNT; i++) {
+        const index = Math.floor(i * data.length / BAR_COUNT);
+
+        if (isRecording) {
+          const raw = Math.abs(data[index]) * height * 1.5;
+          smoothedHeights[i] = smoothedHeights[i] * 0.85 + raw * 0.15;
+        }
+
+        const edge   = Math.min(i, BAR_COUNT - 1 - i);
+        const taper  = edge < 2 ? 0.4 : 1;
+        const barH   = Math.max(4, smoothedHeights[i] * taper);
+        const x      = i * (BAR_WIDTH + BAR_GAP) + (width - BAR_COUNT * (BAR_WIDTH + BAR_GAP)) / 2;
+        const y      = centerY - barH / 2;
+
+        ctx.beginPath();
+        ctx.roundRect(x, y, BAR_WIDTH, barH, BAR_RADIUS);
+        ctx.fill();
+      }
+    },
+  });
+
+  const recorder = wavesurfer.registerPlugin(
+    RecordPlugin.create({ scrollingWaveform: false })
+  );
+
+  recorder.on('record-end', async (blob) => {
+    await handleStop(blob);
+  });
+
+  // ── UI helpers ──────────────────────────────────────────────────
   function setStatus(msg, cls) {
     status.textContent = msg;
     status.className   = "status " + (cls || "");
   }
 
   function setButtonEnabled(enabled) {
-    if (enabled) {
-      btnWrap.classList.remove('disabled');
-    } else {
-      btnWrap.classList.add('disabled');
-    }
+    if (enabled) btnWrap.classList.remove('disabled');
+    else         btnWrap.classList.add('disabled');
   }
 
   function scaleUp() {
@@ -114,9 +158,10 @@
     liquidEl.classList.remove('pulsing');
   }
 
+  // ── Network helpers ─────────────────────────────────────────────
   async function fetchWithTimeout(url, options, timeoutMs) {
     const controller = new AbortController();
-    const timer = setTimeout(function() { controller.abort(); }, timeoutMs || REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs || REQUEST_TIMEOUT_MS);
     try {
       return await fetch(url, Object.assign({}, options || {}, { signal: controller.signal }));
     } finally {
@@ -128,14 +173,11 @@
     try {
       const body = await res.text();
       return body ? body.slice(0, 180) : "";
-    } catch (e) {
-      return "";
-    }
+    } catch (e) { return ""; }
   }
 
   function extractTextFromPayload(payload) {
     if (typeof payload === "string") return payload.trim() || null;
-
     if (Array.isArray(payload)) {
       for (const item of payload) {
         const text = extractTextFromPayload(item);
@@ -143,89 +185,54 @@
       }
       return null;
     }
-
     if (!payload || typeof payload !== "object") return null;
-
     if (typeof payload.corrected === "string" && payload.corrected.trim()) return payload.corrected.trim();
-    if (typeof payload.text === "string" && payload.text.trim()) return payload.text.trim();
-    if (typeof payload.raw === "string" && payload.raw.trim()) return payload.raw.trim();
-
+    if (typeof payload.text      === "string" && payload.text.trim())      return payload.text.trim();
+    if (typeof payload.raw       === "string" && payload.raw.trim())       return payload.raw.trim();
     if (Array.isArray(payload.data)) {
       for (const item of payload.data) {
         const text = extractTextFromPayload(item);
         if (text) return text;
       }
     }
-
     if (payload.output) {
-      const outText = extractTextFromPayload(payload.output);
-      if (outText) return outText;
+      const t = extractTextFromPayload(payload.output);
+      if (t) return t;
     }
-
     return null;
   }
 
   function parseSSEPayload(resultText) {
     const lines = resultText.split("\n");
-    let currentEvent = "";
-    let bestText = null;
-    let fallbackText = null;
-    let serverError = null;
-    let lastDataSnippet = null;
-
+    let currentEvent = "", bestText = null, fallbackText = null, serverError = null, lastDataSnippet = null;
     for (const line of lines) {
-      if (line.startsWith("event:")) {
-        currentEvent = line.slice(6).trim().toLowerCase();
-        continue;
-      }
-
+      if (line.startsWith("event:")) { currentEvent = line.slice(6).trim().toLowerCase(); continue; }
       if (!line.startsWith("data: ")) continue;
       const raw = line.slice(6).trim();
       if (!raw || raw === "[DONE]") continue;
-
       let payload;
-      try {
-        payload = JSON.parse(raw);
-        lastDataSnippet = raw;
-      } catch (e) {
-        continue;
-      }
-
+      try { payload = JSON.parse(raw); lastDataSnippet = raw; } catch (e) { continue; }
       if (currentEvent === "error") {
-        if (payload && typeof payload === "object" && payload.error) {
-          serverError = String(payload.error);
-        }
+        if (payload && typeof payload === "object" && payload.error) serverError = String(payload.error);
         continue;
       }
-
       const text = extractTextFromPayload(payload);
       if (!text) continue;
-
-      if (currentEvent === "complete" || currentEvent === "output") {
-        bestText = text;
-      } else if (!fallbackText) {
-        fallbackText = text;
-      }
+      if (currentEvent === "complete" || currentEvent === "output") bestText = text;
+      else if (!fallbackText) fallbackText = text;
     }
-
-    if (bestText) return { text: bestText, error: null };
-    if (fallbackText) return { text: fallbackText, error: null };
-    if (serverError) return { text: null, error: serverError };
-    if (lastDataSnippet) {
-      return { text: null, error: "No usable result from server: " + lastDataSnippet.slice(0, 140) };
-    }
+    if (bestText)        return { text: bestText, error: null };
+    if (fallbackText)    return { text: fallbackText, error: null };
+    if (serverError)     return { text: null, error: serverError };
+    if (lastDataSnippet) return { text: null, error: "No usable result from server: " + lastDataSnippet.slice(0, 140) };
     return { text: null, error: "No usable result from server" };
   }
 
   async function postJSONWithFallback(paths, payloadOrBuilder) {
     let lastErr = null;
-
     for (const path of paths) {
-      const candidatePayloads = typeof payloadOrBuilder === "function"
-        ? payloadOrBuilder(path)
-        : payloadOrBuilder;
-      const payloads = Array.isArray(candidatePayloads) ? candidatePayloads : [candidatePayloads];
-
+      const candidates = typeof payloadOrBuilder === "function" ? payloadOrBuilder(path) : payloadOrBuilder;
+      const payloads = Array.isArray(candidates) ? candidates : [candidates];
       for (const payload of payloads) {
         try {
           const res = await fetchWithTimeout(SPACE_URL + path, {
@@ -233,56 +240,32 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
-
-          if (res.status === 404) {
-            lastErr = new Error("Not found: " + path);
-            break;
-          }
-
+          if (res.status === 404) { lastErr = new Error("Not found: " + path); break; }
           if (!res.ok) {
             const body = await readErrorBody(res);
             lastErr = new Error("Request failed (" + res.status + ")" + (body ? ": " + body : ""));
             continue;
           }
-
-          const data = await res.json();
-          return { path: path, data: data };
-        } catch (e) {
-          lastErr = e;
-        }
+          return { path, data: await res.json() };
+        } catch (e) { lastErr = e; }
       }
     }
-
     throw lastErr || new Error("No working endpoint found");
   }
 
   async function postFormWithFallback(paths, formData) {
     let lastErr = null;
-
     for (const path of paths) {
       try {
-        const res = await fetchWithTimeout(SPACE_URL + path, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (res.status === 404) {
-          lastErr = new Error("Not found: " + path);
-          continue;
-        }
-
+        const res = await fetchWithTimeout(SPACE_URL + path, { method: "POST", body: formData });
+        if (res.status === 404) { lastErr = new Error("Not found: " + path); continue; }
         if (!res.ok) {
           const body = await readErrorBody(res);
           throw new Error("Request failed (" + res.status + ")" + (body ? ": " + body : ""));
         }
-
-        const data = await res.json();
-        return { path: path, data: data };
-      } catch (e) {
-        lastErr = e;
-      }
+        return { path, data: await res.json() };
+      } catch (e) { lastErr = e; }
     }
-
     throw lastErr || new Error("No working endpoint found");
   }
 
@@ -294,35 +277,25 @@
         if (typeof uploadData[0].name === "string") return uploadData[0].name;
       }
     }
-
     if (uploadData && typeof uploadData === "object") {
       if (typeof uploadData.path === "string") return uploadData.path;
       if (typeof uploadData.file === "string") return uploadData.file;
       if (uploadData.data && Array.isArray(uploadData.data) && uploadData.data[0]) {
         if (typeof uploadData.data[0] === "string") return uploadData.data[0];
-        if (uploadData.data[0] && typeof uploadData.data[0].path === "string") {
-          return uploadData.data[0].path;
-        }
+        if (uploadData.data[0] && typeof uploadData.data[0].path === "string") return uploadData.data[0].path;
       }
     }
-
     return null;
   }
 
   function createFileDataFromUpload(uploadData) {
     const filePath = extractUploadedFilePath(uploadData);
     if (!filePath) return null;
-
     if (Array.isArray(uploadData) && uploadData[0] && typeof uploadData[0] === "object") {
       const obj = uploadData[0];
       if (obj.meta && obj.meta._type === "gradio.FileData") return obj;
     }
-
-    return {
-      path: filePath,
-      orig_name: "recording.webm",
-      meta: { _type: "gradio.FileData" },
-    };
+    return { path: filePath, orig_name: "recording.webm", meta: { _type: "gradio.FileData" } };
   }
 
   function buildPredictPayloads(fileData, endpointPath) {
@@ -340,10 +313,7 @@
         { audio_path: filePath },
       ];
     }
-    return [
-      { data: [{ path: filePath }] },
-      { data: [filePath] },
-    ];
+    return [{ data: [{ path: filePath }] }, { data: [filePath] }];
   }
 
   function resultPathFromPredictPath(predictPath, eventId) {
@@ -352,108 +322,72 @@
 
   async function getTextWithFallback(paths) {
     let lastErr = null;
-
     for (const path of paths) {
       try {
         const res = await fetchWithTimeout(SPACE_URL + path, {}, 30000);
-
-        if (res.status === 404) {
-          lastErr = new Error("Not found: " + path);
-          continue;
-        }
-
+        if (res.status === 404) { lastErr = new Error("Not found: " + path); continue; }
         if (!res.ok) {
           const body = await readErrorBody(res);
           throw new Error("Request failed (" + res.status + ")" + (body ? ": " + body : ""));
         }
-
         return await res.text();
-      } catch (e) {
-        lastErr = e;
-      }
+      } catch (e) { lastErr = e; }
     }
-
     throw lastErr || new Error("No working endpoint found");
   }
 
+  // ── Server health ───────────────────────────────────────────────
   function waitForServer() {
     fetchWithTimeout(HEALTH_URL, {}, 8000)
-      .then(function(res) {
+      .then(res => {
         if (res.ok) {
           serverReady = true;
           setButtonEnabled(true);
           healthRetries = 0;
           setStatus("Tap to speak");
         } else {
-          healthRetries += 1;
-          if (healthRetries >= MAX_HEALTH_RETRIES) {
-            setStatus("Server unavailable", "error");
-            return;
-          }
+          healthRetries++;
+          if (healthRetries >= MAX_HEALTH_RETRIES) { setStatus("Server unavailable", "error"); return; }
           setTimeout(waitForServer, 4000);
         }
       })
-      .catch(function() {
-        healthRetries += 1;
-        if (healthRetries >= MAX_HEALTH_RETRIES) {
-          setStatus("Server unavailable", "error");
-          return;
-        }
+      .catch(() => {
+        healthRetries++;
+        if (healthRetries >= MAX_HEALTH_RETRIES) { setStatus("Server unavailable", "error"); return; }
         setTimeout(waitForServer, 4000);
       });
   }
 
-  window.addEventListener("load", function() {
-    waitForServer();
-  });
+  window.addEventListener("load", () => waitForServer());
 
+  // ── Recording ───────────────────────────────────────────────────
   async function startRecording() {
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
-        setStatus("Browser does not support recording", "error");
-        return;
-      }
-
-      const stream  = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunks   = [];
-      mediaRecorder = new MediaRecorder(stream);
-
-      mediaRecorder.ondataavailable = function(e) {
-        if (e.data.size > 0) audioChunks.push(e.data);
-      };
-      mediaRecorder.onstop = handleStop;
-      mediaRecorder.start();
-
+      await recorder.startRecording();
       isRecording = true;
       btn.src = "Images/Pause_Button.png";
       scaleUp();
-      waveform.classList.add("visible");
       setStatus("Recording...", "active");
-
     } catch (err) {
       setStatus("Microphone access denied", "error");
     }
   }
 
   function stopRecording() {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach(function(t) { t.stop(); });
-      isRecording = false;
-      btn.src = "Images/Play_Button.png";
-      scaleDown();
-      waveform.classList.remove("visible");
-    }
+    recorder.stopRecording();
+    isRecording = false;
+    smoothedHeights.fill(4); // reset bars; WaveSurfer re-renders on record-end
+    btn.src = "Images/Play_Button.png";
+    scaleDown();
   }
 
-  async function handleStop() {
+  async function handleStop(blob) {
     if (isBusy) return;
     isBusy = true;
     setButtonEnabled(false);
     spinner.classList.add("visible");
     setStatus("Processing...", "working");
 
-    const blob = new Blob(audioChunks, { type: "audio/webm" });
     if (!blob || blob.size === 0) {
       spinner.classList.remove("visible");
       setStatus("No audio captured", "error");
@@ -467,17 +401,11 @@
       formData.append("files", blob, "recording.webm");
 
       const uploadCall = await postFormWithFallback(API_PATHS.upload, formData);
-      const uploadData = uploadCall.data;
-      const fileData = createFileDataFromUpload(uploadData);
-      if (!fileData) {
-        throw new Error("Upload response missing file path");
-      }
+      const fileData   = createFileDataFromUpload(uploadCall.data);
+      if (!fileData) throw new Error("Upload response missing file path");
 
-      const predictCall = await postJSONWithFallback(API_PATHS.predict, function(path) {
-        return buildPredictPayloads(fileData, path);
-      });
-      const predictData = predictCall.data;
-      const eventId     = predictData.event_id;
+      const predictCall = await postJSONWithFallback(API_PATHS.predict, path => buildPredictPayloads(fileData, path));
+      const eventId = predictCall.data.event_id;
       if (!eventId) throw new Error("Predict response missing event id");
 
       const resultPaths = [
@@ -488,12 +416,8 @@
         "/gradio_api/call/predict/" + eventId,
       ];
       const resultText = await getTextWithFallback(resultPaths);
-
       const parsed = parseSSEPayload(resultText);
-      if (!parsed.text) {
-        throw new Error(parsed.error || "No usable result from server");
-      }
-      const corrected = parsed.text;
+      if (!parsed.text) throw new Error(parsed.error || "No usable result from server");
 
       spinner.classList.remove("visible");
       setStatus("Speaking...", "active");
@@ -501,51 +425,47 @@
       if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== "function") {
         setStatus("Done (speech unsupported)", "error");
       } else {
-        const utterance = new SpeechSynthesisUtterance(corrected);
+        const utterance = new SpeechSynthesisUtterance(parsed.text);
         utterance.lang  = "en-US";
         utterance.rate  = 0.95;
-        utterance.onend = function() { setStatus("Tap to speak"); };
+        utterance.onend = () => setStatus("Tap to speak");
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
       }
-
     } catch (err) {
       spinner.classList.remove("visible");
-      const msg = err && err.message ? err.message : "Unexpected failure";
-      setStatus(msg, "error");
+      setStatus(err && err.message ? err.message : "Unexpected failure", "error");
       console.error(err);
-      setTimeout(function() { setStatus("Tap to speak"); }, 3000);
+      setTimeout(() => setStatus("Tap to speak"), 3000);
     } finally {
       isBusy = false;
       setButtonEnabled(serverReady);
     }
   }
 
-  function toggleSettings() {
+  btn.addEventListener("click", () => {
+    if (!serverReady || isBusy) return;
+    if (isRecording) stopRecording();
+    else startRecording();
+  });
+
+  // ── Settings (exposed to onclick attrs in HTML) ─────────────────
+  window.toggleSettings = () => {
     document.getElementById('settings-modal').classList.toggle('open');
     document.getElementById('settings-overlay').classList.toggle('open');
     closeSetting();
-  }
+  };
 
-  function toggleSetting(btn) {
-    const detail = btn.nextElementSibling;
+  window.toggleSetting = el => {
+    const detail = el.nextElementSibling;
     const isOpen = detail.classList.contains('open');
     document.querySelectorAll('.settings-item-detail').forEach(d => d.classList.remove('open'));
     if (!isOpen) detail.classList.add('open');
-  }
+  };
 
   function closeSetting() {
     document.querySelectorAll('.settings-item-detail').forEach(d => d.classList.remove('open'));
   }
-
-  btn.addEventListener("click", function() {
-    if (!serverReady || isBusy) return;
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  });
 </script>
 <script src="script.js" defer></script>
 
