@@ -12,7 +12,7 @@
 
 <div class="top-left-fixed">A.R.T.I.C.U.L.A.T.E.</div>
 
-<!-- Settings icon -->
+<!-- Basic code for the settings button -->
 <button class="settings-icon-button" onclick="toggleSettings()" title="Settings">
   <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="3"></circle>
@@ -20,7 +20,7 @@
   </svg>
 </button>
 
-<!-- Settings modal -->
+<!--Code for the full setting layout/modal -->
 <div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
 <div class="settings-modal" id="settings-modal">
   <button class="settings-modal-close" onclick="toggleSettings()">&#x2715;</button>
@@ -58,8 +58,6 @@
   <p class="status warming dot-pulse" id="status">Connecting</p>
 </div>
 
-<p class="footer">Grammar Police &mdash; Apps for Good 2026</p>
-
 <script type="module">
   import WaveSurfer from 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js';
   import RecordPlugin from 'https://unpkg.com/wavesurfer.js@7/dist/plugins/record.esm.js';
@@ -73,15 +71,15 @@
 
   const HEALTH_URL = SPACE_URL + "/";
 
-  const btn      = document.getElementById("btn");
-  const btnWrap  = document.getElementById("btnWrap");
-  const status   = document.getElementById("status");
-  const spinner  = document.getElementById("spinner");
+  const btn = document.getElementById("btn");
+  const btnWrap = document.getElementById("btnWrap");
+  const status = document.getElementById("status");
+  const spinner = document.getElementById("spinner");
   const liquidEl = document.querySelector('.liquid-body');
 
-  let isRecording   = false;
-  let serverReady   = false;
-  let isBusy        = false;
+  let isRecording = false;
+  let serverReady = false;
+  let isBusy = false;
   let healthRetries = 0;
 
   const MAX_HEALTH_RETRIES = 15;
@@ -98,12 +96,12 @@
     interact: false,
     renderFunction: (channels, ctx) => {
       const { width, height } = ctx.canvas;
-      const BAR_COUNT  = 28;
-      const BAR_WIDTH  = 12;
-      const BAR_GAP    = 9;
+      const BAR_COUNT = 28;
+      const BAR_WIDTH = 12;
+      const BAR_GAP = 9;
       const BAR_RADIUS = 6;
-      const centerY    = height / 2;
-      const data       = channels[0];
+      const centerY = height / 2;
+      const data = channels[0];
 
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
@@ -116,11 +114,11 @@
           smoothedHeights[i] = smoothedHeights[i] * 0.85 + raw * 0.15;
         }
 
-        const edge   = Math.min(i, BAR_COUNT - 1 - i);
-        const taper  = edge < 2 ? 0.4 : 1;
-        const barH   = Math.max(4, smoothedHeights[i] * taper);
-        const x      = i * (BAR_WIDTH + BAR_GAP) + (width - BAR_COUNT * (BAR_WIDTH + BAR_GAP)) / 2;
-        const y      = centerY - barH / 2;
+        const edge = Math.min(i, BAR_COUNT - 1 - i);
+        const taper = edge < 2 ? 0.4 : 1;
+        const barH = Math.max(4, smoothedHeights[i] * taper);
+        const x = i * (BAR_WIDTH + BAR_GAP) + (width - BAR_COUNT * (BAR_WIDTH + BAR_GAP)) / 2;
+        const y = centerY - barH / 2;
 
         ctx.beginPath();
         ctx.roundRect(x, y, BAR_WIDTH, barH, BAR_RADIUS);
@@ -187,8 +185,8 @@
     }
     if (!payload || typeof payload !== "object") return null;
     if (typeof payload.corrected === "string" && payload.corrected.trim()) return payload.corrected.trim();
-    if (typeof payload.text      === "string" && payload.text.trim())      return payload.text.trim();
-    if (typeof payload.raw       === "string" && payload.raw.trim())       return payload.raw.trim();
+    if (typeof payload.text === "string" && payload.text.trim()) return payload.text.trim();
+    if (typeof payload.raw === "string" && payload.raw.trim()) return payload.raw.trim();
     if (Array.isArray(payload.data)) {
       for (const item of payload.data) {
         const text = extractTextFromPayload(item);
@@ -221,9 +219,9 @@
       if (currentEvent === "complete" || currentEvent === "output") bestText = text;
       else if (!fallbackText) fallbackText = text;
     }
-    if (bestText)        return { text: bestText, error: null };
-    if (fallbackText)    return { text: fallbackText, error: null };
-    if (serverError)     return { text: null, error: serverError };
+    if (bestText) return { text: bestText, error: null };
+    if (fallbackText) return { text: fallbackText, error: null };
+    if (serverError) return { text: null, error: serverError };
     if (lastDataSnippet) return { text: null, error: "No usable result from server: " + lastDataSnippet.slice(0, 140) };
     return { text: null, error: "No usable result from server" };
   }
