@@ -152,7 +152,7 @@
     status.className   = "status " + (cls || "");
   }
 
-  // Enable or disable the main recording button
+  // Enable or disable the main refording button
   function setButtonEnabled(enabled) {
     if (enabled) btnWrap.classList.remove('disabled');
     else         btnWrap.classList.add('disabled');
@@ -177,7 +177,7 @@
     }
   }
 
-  // Best-effort read of short error body for debugging messages
+  // Best-effort read of short error body for debugging messages!
   async function readErrorBody(res) {
     try {
       const body = await res.text();
@@ -185,7 +185,7 @@
     } catch (e) { return ""; }
   }
 
-  // Normalize API payloads into a single text string
+  // Normalize API payloads into a single text string!
   function extractTextFromPayload(payload) {
     if (typeof payload === "string") return payload.trim() || null;
     if (Array.isArray(payload)) {
@@ -265,7 +265,7 @@
     throw lastErr || new Error("No working endpoint found");
   }
 
-  // Upload audio using form-data across fallback routes.
+  // Upload audio using form-data across failback routes.
   async function postFormWithFallback(paths, formData) {
     let lastErr = null;
     for (const path of paths) {
@@ -332,7 +332,7 @@
     return [{ data: [{ path: filePath }] }, { data: [filePath] }];
   }
 
-  // Convert prediction call into an SSE result path
+  // Convert prediction call into an SSE result path.
   function resultPathFromPredictPath(predictPath, eventId) {
     return predictPath + "/" + eventId;
   }
@@ -378,7 +378,6 @@
 
   window.addEventListener("load", () => waitForServer());
 
-  // Recording lifecycle
   async function startRecording() {
     try {
       await recorder.startRecording();
@@ -399,7 +398,7 @@
     scaleDown();
   }
 
-  // Full upload -> predict -> speak pipeline after recording stops
+  // Full upload to prediction to speak pipeline after recording stops
   async function handleStop(blob) {
     if (isBusy) return;
     isBusy = true;
