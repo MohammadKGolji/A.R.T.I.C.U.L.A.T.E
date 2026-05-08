@@ -1,6 +1,5 @@
 <!-- Wavesurfer & Wavesurfer plugin Record was used to create audio wave. Code was taken from Github: https://github.com/katspaugh/wavesurfer.js/. CanvasRenderingContext2D: roundRect() was used to alter waveform shape and code was taken from https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/roundRect. Button play/pause script was taken and altered from https://stackoverflow.com/questions/24278469/click-a-button-programmatically-js.  -->
 <!-- Dual components preindex.html and MainPage.html (in /peices) were merged with the assistance of Claude by Anthropic. Prompt: How to merge these components into a new html and css, keeping the content of myStyle.css but enabling the practical functions of preindex.html alongside the aesthetics of MainPage.html. -->
-<!--  -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,6 +12,7 @@
 </head>
 <body>
 
+<!-- Fixed app title branding -->
 <div class="top-left-fixed">A.R.T.I.C.U.L.A.T.E.</div>
 
 <!-- Basic code for the settings button -->
@@ -25,7 +25,9 @@
 </button>
 
 <!--Code for the full setting layout/modal -->
+<!-- Settings overlay used to dim background and close on click -->
 <div class="settings-overlay" id="settings-overlay" onclick="toggleSettings()"></div>
+<!-- Settings modal container and expandable entries -->
 <div class="settings-modal" id="settings-modal">
   <button class="settings-modal-close" onclick="toggleSettings()">&#x2715;</button>
   <h2 class="settings-modal-title">Settings</h2>
@@ -44,7 +46,7 @@
   </div>
 </div>
 
-<!-- Creates a body for the button, as well as a liquid body for the shape beneath button. Sources image for button.--> 
+<!-- Main app area: recording control, waveform, and status -->
 <div class="page">
   <div class="button-wrapper">
     <div class="liquid-wrapper">
@@ -54,13 +56,11 @@
       <img id="btn" src="Images/Play_Button.png" alt="Start recording">
     </div>
   </div>
-<!-- Creates body for waveform--> 
+  <!-- Waveform container -->
   <div id="waveform" class="audio-container"></div>
-
   <div class="spinner-wrap">
     <div class="spinner" id="spinner"></div>
   </div>
-
   <p class="status warming dot-pulse" id="status">Connecting</p>
 </div>
 
@@ -69,8 +69,10 @@
   import WaveSurfer from 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js';
   import RecordPlugin from 'https://unpkg.com/wavesurfer.js@7/dist/plugins/record.esm.js';
 
+  // Hugging Face Space endpoint for upload + prediction
   const SPACE_URL = "https://pineappleananas-speechcorrection.hf.space";
 
+  // Fallback paths so the app works across different Space API routes
   const API_PATHS = {
     upload:  ["/upload", "/gradio_api/upload"],
     predict: ["/call/process_audio", "/gradio_api/call/process_audio", "/call/predict", "/gradio_api/call/predict"],
@@ -78,12 +80,14 @@
 
   const HEALTH_URL = SPACE_URL + "/";
 
+  // Cache key DOM elements for faster access
   const btn = document.getElementById("btn");
   const btnWrap = document.getElementById("btnWrap");
   const status = document.getElementById("status");
   const spinner = document.getElementById("spinner");
   const liquidEl = document.querySelector('.liquid-body');
 
+  // Runtime state flags for UI and network flow control
   let isRecording = false;
   let serverReady = false;
   let isBusy = false;
@@ -94,7 +98,6 @@
 
 
   const smoothedHeights = new Array(28).fill(4);
-<!-- Styling waveform -->
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
     waveColor: 'rgba(255,255,255,0.6)',
@@ -112,7 +115,6 @@
 
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
-<! -- Smoothing the height of the waveform to be more uniform --> 
       for (let i = 0; i < BAR_COUNT; i++) {
         const index = Math.floor(i * data.length / BAR_COUNT);
 
@@ -134,36 +136,37 @@
     },
   });
 
+  // Attach the recording plugin to the WaveSurfer instance
   const recorder = wavesurfer.registerPlugin(
     RecordPlugin.create({ scrollingWaveform: false })
   );
 
+  // When recording ends, send the blob through the upload + predict pipeline
   recorder.on('record-end', async (blob) => {
     await handleStop(blob);
   });
 
-  
+  // UI state helpers
   function setStatus(msg, cls) {
     status.textContent = msg;
     status.className   = "status " + (cls || "");
   }
 
+  // Enable or disable the main recording button
   function setButtonEnabled(enabled) {
     if (enabled) btnWrap.classList.remove('disabled');
     else         btnWrap.classList.add('disabled');
   }
-<!-- Adds visual effect of slight enlargement after and while button is clicked --> 
   function scaleUp() {
     liquidEl.style.transform = 'scale(1.1)';
     liquidEl.classList.add('pulsing');
   }
-<!-- Undoes the scale up --> 
   function scaleDown() {
     liquidEl.style.transform = 'scale(1)';
     liquidEl.classList.remove('pulsing');
   }
 
-  
+  // Network + parsing helpers
   async function fetchWithTimeout(url, options, timeoutMs) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs || REQUEST_TIMEOUT_MS);
@@ -174,6 +177,7 @@
     }
   }
 
+  // Best-effort read of short error body for debugging messages
   async function readErrorBody(res) {
     try {
       const body = await res.text();
@@ -181,6 +185,7 @@
     } catch (e) { return ""; }
   }
 
+  // Normalize API payloads into a single text string
   function extractTextFromPayload(payload) {
     if (typeof payload === "string") return payload.trim() || null;
     if (Array.isArray(payload)) {
@@ -207,6 +212,7 @@
     return null;
   }
 
+  // Parse Gradio SSE-style responses and pick the best text
   function parseSSEPayload(resultText) {
     const lines = resultText.split("\n");
     let currentEvent = "", bestText = null, fallbackText = null, serverError = null, lastDataSnippet = null;
@@ -233,6 +239,7 @@
     return { text: null, error: "No usable result from server" };
   }
 
+  // Try multiple JSON endpoints until one succeeds
   async function postJSONWithFallback(paths, payloadOrBuilder) {
     let lastErr = null;
     for (const path of paths) {
@@ -258,6 +265,7 @@
     throw lastErr || new Error("No working endpoint found");
   }
 
+  // Upload audio using form-data across fallback routes
   async function postFormWithFallback(paths, formData) {
     let lastErr = null;
     for (const path of paths) {
@@ -274,6 +282,7 @@
     throw lastErr || new Error("No working endpoint found");
   }
 
+  // Handle different Gradio upload response shapes
   function extractUploadedFilePath(uploadData) {
     if (Array.isArray(uploadData) && uploadData[0]) {
       if (typeof uploadData[0] === "string") return uploadData[0];
@@ -293,6 +302,7 @@
     return null;
   }
 
+  // Convert upload output into FileData expected by prediction API
   function createFileDataFromUpload(uploadData) {
     const filePath = extractUploadedFilePath(uploadData);
     if (!filePath) return null;
@@ -303,6 +313,7 @@
     return { path: filePath, orig_name: "recording.webm", meta: { _type: "gradio.FileData" } };
   }
 
+  // Build payload variants to match different endpoint schemas
   function buildPredictPayloads(fileData, endpointPath) {
     const filePath = fileData && typeof fileData === "object" ? fileData.path : fileData;
     if (endpointPath.indexOf("process_audio") !== -1) {
@@ -321,10 +332,12 @@
     return [{ data: [{ path: filePath }] }, { data: [filePath] }];
   }
 
+  // Convert prediction call into an SSE result path
   function resultPathFromPredictPath(predictPath, eventId) {
     return predictPath + "/" + eventId;
   }
 
+  // Poll possible SSE result URLs and return the first valid response
   async function getTextWithFallback(paths) {
     let lastErr = null;
     for (const path of paths) {
@@ -341,7 +354,7 @@
     throw lastErr || new Error("No working endpoint found");
   }
 
- 
+  // Server health check and UI gating
   function waitForServer() {
     fetchWithTimeout(HEALTH_URL, {}, 8000)
       .then(res => {
@@ -365,7 +378,7 @@
 
   window.addEventListener("load", () => waitForServer());
 
-<!-- Changes button image and scales when button is clicked or gives error --> 
+  // Recording lifecycle
   async function startRecording() {
     try {
       await recorder.startRecording();
@@ -377,7 +390,7 @@
       setStatus("Microphone access denied", "error");
     }
   }
-<!-- Stops the recording, resets waveform bars, scales image to original size and changes button image --> 
+  // Stops the recording, resets waveform bars, scales image to original size and changes button image
   function stopRecording() {
     recorder.stopRecording();
     isRecording = false;
@@ -386,6 +399,7 @@
     scaleDown();
   }
 
+  // Full upload -> predict -> speak pipeline after recording stops
   async function handleStop(blob) {
     if (isBusy) return;
     isBusy = true;
@@ -448,6 +462,7 @@
     }
   }
 
+  // Toggle recording state when the main button is pressed
   btn.addEventListener("click", () => {
     if (!serverReady || isBusy) return;
     if (isRecording) stopRecording();
@@ -455,12 +470,14 @@
   });
 
 
+  // Settings modal handlers
   window.toggleSettings = () => {
     document.getElementById('settings-modal').classList.toggle('open');
     document.getElementById('settings-overlay').classList.toggle('open');
     closeSetting();
   };
 
+  // Expand or collapse an individual settings detail row
   window.toggleSetting = el => {
     const detail = el.nextElementSibling;
     const isOpen = detail.classList.contains('open');
@@ -468,6 +485,7 @@
     if (!isOpen) detail.classList.add('open');
   };
 
+  // Collapse all settings detail rows
   function closeSetting() {
     document.querySelectorAll('.settings-item-detail').forEach(d => d.classList.remove('open'));
   }
