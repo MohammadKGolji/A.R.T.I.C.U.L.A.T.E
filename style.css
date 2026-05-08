@@ -1,5 +1,6 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Creates body with center gradient */
 body {
   background: #044269;
   background: radial-gradient(
@@ -44,7 +45,7 @@ body.active {
   height: 100vh;
 }
 
-/* For button area */
+/* Creates and centers wrapper for button */
 .button-wrapper {
   position: relative;
   display: flex;
@@ -66,7 +67,7 @@ body.active {
   animation: wobble 8s ease-in-out infinite;
   z-index: 0;
 }
-/* Programs the floating blob outlining the play button */
+/* Creates and styles the blob beneath the button */
 .liquid_shape {
   position: absolute;
   z-index: 0;
@@ -118,6 +119,7 @@ body.active {
   100% { transform: rotate(0deg) scale(1); }
 }
 
+/* Creates slight pulsing animation */
 @keyframes pulse {
   0%   { transform: scale(1); }
   50%  { transform: scale(1.04); }
@@ -131,6 +133,7 @@ body.active {
 }
 
 /* Waveform (WaveSurfer canvas) */
+/* Container for waveform */
 .audio-container {
   width: 100vw;
   margin-top: 1.5rem;
@@ -300,7 +303,7 @@ body.active {
   border-radius: 6px 6px 0 0;
 }
 
-/* ── Media queries ── */
+/* Media queries, changes layout of app for different screen sizes */
 @media only screen and (max-width: 600px) {
   #btn { max-width: 220px; }
 }
