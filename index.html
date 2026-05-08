@@ -39,6 +39,7 @@
   </div>
 </div>
 
+<!-- Creates a body for the button, as well as a liquid body for the shape beneath button. Sources image for button.--> 
 <div class="page">
   <div class="button-wrapper">
     <div class="liquid-wrapper">
@@ -48,7 +49,7 @@
       <img id="btn" src="Images/Play_Button.png" alt="Start recording">
     </div>
   </div>
-
+<!-- Creates body for waveform--> 
   <div id="waveform" class="audio-container"></div>
 
   <div class="spinner-wrap">
@@ -58,6 +59,7 @@
   <p class="status warming dot-pulse" id="status">Connecting</p>
 </div>
 
+<!-- Creates a live audiowave form using wavesurfer and the wavesurfer plugin RecordPlugin.--> 
 <script type="module">
   import WaveSurfer from 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js';
   import RecordPlugin from 'https://unpkg.com/wavesurfer.js@7/dist/plugins/record.esm.js';
@@ -85,9 +87,9 @@
   const MAX_HEALTH_RETRIES = 15;
   const REQUEST_TIMEOUT_MS = 20000;
 
-  // ── WaveSurfer + RecordPlugin ───────────────────────────────────
-  const smoothedHeights = new Array(28).fill(4);
 
+  const smoothedHeights = new Array(28).fill(4);
+<!-- Styling waveform -->
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
     waveColor: 'rgba(255,255,255,0.6)',
@@ -105,7 +107,7 @@
 
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
-
+<! -- Smoothing the height of the waveform to be more uniform --> 
       for (let i = 0; i < BAR_COUNT; i++) {
         const index = Math.floor(i * data.length / BAR_COUNT);
 
@@ -135,7 +137,7 @@
     await handleStop(blob);
   });
 
-  // ── UI helpers ──────────────────────────────────────────────────
+  
   function setStatus(msg, cls) {
     status.textContent = msg;
     status.className   = "status " + (cls || "");
@@ -145,18 +147,18 @@
     if (enabled) btnWrap.classList.remove('disabled');
     else         btnWrap.classList.add('disabled');
   }
-
+<!-- Adds visual effect of slight enlargement after and while button is clicked --> 
   function scaleUp() {
     liquidEl.style.transform = 'scale(1.1)';
     liquidEl.classList.add('pulsing');
   }
-
+<!-- Undoes the scale up --> 
   function scaleDown() {
     liquidEl.style.transform = 'scale(1)';
     liquidEl.classList.remove('pulsing');
   }
 
-  // ── Network helpers ─────────────────────────────────────────────
+  
   async function fetchWithTimeout(url, options, timeoutMs) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs || REQUEST_TIMEOUT_MS);
@@ -334,7 +336,7 @@
     throw lastErr || new Error("No working endpoint found");
   }
 
-  // ── Server health ───────────────────────────────────────────────
+ 
   function waitForServer() {
     fetchWithTimeout(HEALTH_URL, {}, 8000)
       .then(res => {
@@ -358,7 +360,7 @@
 
   window.addEventListener("load", () => waitForServer());
 
-  // ── Recording ───────────────────────────────────────────────────
+<!-- Changes button image and scales when button is clicked or gives error --> 
   async function startRecording() {
     try {
       await recorder.startRecording();
@@ -370,11 +372,11 @@
       setStatus("Microphone access denied", "error");
     }
   }
-
+<!-- Stops the recording, resets waveform bars, scales image to original size and changes button image --> 
   function stopRecording() {
     recorder.stopRecording();
     isRecording = false;
-    smoothedHeights.fill(4); // reset bars; WaveSurfer re-renders on record-end
+    smoothedHeights.fill(4); 
     btn.src = "Images/Play_Button.png";
     scaleDown();
   }
@@ -447,7 +449,7 @@
     else startRecording();
   });
 
-  // ── Settings (exposed to onclick attrs in HTML) ─────────────────
+
   window.toggleSettings = () => {
     document.getElementById('settings-modal').classList.toggle('open');
     document.getElementById('settings-overlay').classList.toggle('open');
