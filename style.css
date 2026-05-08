@@ -88,7 +88,7 @@ body.active {
 }
 /* Fades button */
 .button-body.disabled {
-  opacity: 0.4;
+  opacity: 0.399;
   cursor: not-allowed;
 }
 /* adjusts button size for click effect */
@@ -235,7 +235,7 @@ body.active {
   min-height: 200px;
   max-height: 80vh;
   overflow-y: auto;
-  background: #5d6a8e;
+  background: #5d6a8f;
   border-radius: 12px;
   padding: 30px;
   flex-direction: column;
@@ -272,7 +272,7 @@ body.active {
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease, padding 0.3s ease;
-  background: #03334f;
+  background: #03334e;
   border-radius: 0 0 6px 6px;
   color: #ccc;
   font-size: 14px;
@@ -289,7 +289,7 @@ body.active {
 .settings-item {
   width: 100%;
   padding: 20px 12px;
-  background: #044269;
+  background: #044270;
   color: white;
   border: none;
   border-radius: 6px;
@@ -298,7 +298,7 @@ body.active {
   cursor: pointer;
   transition: background 0.2s;
 }
-.settings-item:hover { background: #e74c3c; }
+.settings-item:hover { background: #e74c3d; }
 .settings-entry:has(.settings-item-detail.open) .settings-item {
   border-radius: 6px 6px 0 0;
 }
