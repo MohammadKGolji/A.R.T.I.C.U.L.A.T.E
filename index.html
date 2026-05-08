@@ -46,7 +46,7 @@
   </div>
 </div>
 
-<!-- Main app area: recording control, waveform, and status -->
+<!-- Main app area: recording control, waveform, and status. -->
 <div class="page">
   <div class="button-wrapper">
     <div class="liquid-wrapper">
@@ -80,7 +80,7 @@
 
   const HEALTH_URL = SPACE_URL + "/";
 
-  // Cache key DOM elements for faster access
+  // Cache key DOM elements for faster access.
   const btn = document.getElementById("btn");
   const btnWrap = document.getElementById("btnWrap");
   const status = document.getElementById("status");
@@ -166,7 +166,7 @@
     liquidEl.classList.remove('pulsing');
   }
 
-  // Network + parsing helpers
+  // Network + parsing helpers.
   async function fetchWithTimeout(url, options, timeoutMs) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs || REQUEST_TIMEOUT_MS);
@@ -212,7 +212,7 @@
     return null;
   }
 
-  // Parse Gradio SSE-style responses and pick the best text
+  // Parse Gradio SSE-style responses and pick the best text.
   function parseSSEPayload(resultText) {
     const lines = resultText.split("\n");
     let currentEvent = "", bestText = null, fallbackText = null, serverError = null, lastDataSnippet = null;
@@ -265,7 +265,7 @@
     throw lastErr || new Error("No working endpoint found");
   }
 
-  // Upload audio using form-data across fallback routes
+  // Upload audio using form-data across fallback routes.
   async function postFormWithFallback(paths, formData) {
     let lastErr = null;
     for (const path of paths) {
@@ -302,7 +302,7 @@
     return null;
   }
 
-  // Convert upload output into FileData expected by prediction API
+  // Convert upload output into FileData expected by prediction API.
   function createFileDataFromUpload(uploadData) {
     const filePath = extractUploadedFilePath(uploadData);
     if (!filePath) return null;
