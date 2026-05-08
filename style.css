@@ -1,3 +1,5 @@
+<!-- Wavesurfer & Wavesurfer plugin Record was used to create audio wave. Code was taken from Github: https://github.com/katspaugh/wavesurfer.js/. CanvasRenderingContext2D: roundRect() was used to alter waveform shape and code was taken from https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/roundRect. Button play/pause script was taken and altered from https://stackoverflow.com/questions/24278469/click-a-button-programmatically-js.  -->
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
